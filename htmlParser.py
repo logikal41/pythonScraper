@@ -22,9 +22,9 @@ item = {'product category': '', 'product name': '', 'product description': '', '
 
 
 # Function to pull all the spans out of the targeted paragraphs
-def filterParagraphs(paragraphs):
+def filterParagraphs(paragraphs, pClass):
 	# Pull in the global variable pClass
-	global pClass
+	#global pClass
 	# local variables
 	spans = []
 
@@ -38,9 +38,9 @@ def filterParagraphs(paragraphs):
 	return spans
 
 # Function to pull the text out of the targeted spans
-def filterSpans(spans):
+def filterSpans(spans,spanClass):
 	# Pull in the global variable spanClass
-	global spanClass
+	#global spanClass
 	# local variables
 	items = []
 
@@ -52,10 +52,50 @@ def filterSpans(spans):
 	return items
 
 
+# Function to pull out the climbing categories
+def climbingCategory(paragraphs):
+	# local variables for the class selectors
+	pClass = ['ParaOverride-4']
+	spanClass = ['Section-Opener-Header', 'CharOverride-2'] # if either of these classm es shows up we are good
+	spans = filterParagraphs(paragraphs,pClass)
+	return filterSpans(spans,spanClass)
+
+# Function to pull out the product names
+def productName(paragraphs):
+	# local variables for the class selectors
+	pClass = ['Product-Name']
+	spanClass = ['_1_Product-Header']
+	spans = filterParagraphs(paragraphs,pClass)
+	return filterSpans(spans,spanClass)
+
+# Function to pull out the product descriptions
+def productDescription(paragraphs):
+	# local variables for the class selectors
+	pClass = ['ParaOverride-3']
+	spanClass = ['_2_Product-Description']
+	spans = filterParagraphs(paragraphs,pClass)
+	return filterSpans(spans,spanClass)
+
+# Function to pull out the product features
+def productFeatures(paragraphs):
+	# local variables for the class selectors
+	pClass = ['Bullets', 'ParaOverride-3']  #this one needs a different function so that it includes both of these classes
+	spanClass = ['_2_Product-Description']
+	spans = filterParagraphs(paragraphs,pClass)
+	return filterSpans(spans,spanClass)
+
 
 # holds all of the spans which belong to the filtered paragraphs 
-spans = filterParagraphs(paragraphs)
-products = filterSpans(spans)
-print(products)
+#spans = filterParagraphs(paragraphs)
+categories = climbingCategory(paragraphs)
+names = productName(paragraphs)
+descriptions = productDescription(paragraphs)
+print(categories)
+print(names)
+print(descriptions)
 
 
+# ------- TO DO --------
+# How to loop over this code so that each all individual parts can be linked to one dictionary (item)
+# Where is the start and end point for each loop so that all features get included, the m number, etc.
+# due to the layout of the HTML , the climbing category usually comes after the first item in the category
