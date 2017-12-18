@@ -7,18 +7,13 @@ with open("P:\QA\Berry\S18\Section_2.html","r", encoding="utf8") as f:
 #             ----- GLOBAL VARIABLES ------
 # All products will be stored in this global variable
 products = []
-# Paragraph classes of interest (global variable)
-pClass = ['ParaOverride-3', 'ParaOverride-4', 'Product-Name']
-# Span classes of interest
-spanClass = ['Section-Opener-Header', 'CharOverride-2', 'Category-Introduction', \
-'_1_Product-Header', '_2_Product-Description', '_3_Style-Numbers']
 # pull all of the paragraphs in the soup
 paragraphs = soup.find_all('p')
 
 
 # Find the category indexs 
 def findCategoryIndex(paragraphs):
-	index = [0]
+	index = []
 
 	for p in range(len(paragraphs)):
 		if paragraphs[p][1] == "product_category":
@@ -59,12 +54,13 @@ def isProductName(data):
 	classes = data.attrs['class']
 	for item in classes:
 		if item in pClass:
-			nestedSpans = data.find_all('span')
-			for span in nestedSpans:
-				nestedClasses = span.attrs['class']
-				for spanItem in nestedClasses:
-					if spanItem in spanClass:
-						return True
+			return True
+			# nestedSpans = data.find_all('span')
+			# for span in nestedSpans:
+			# 	nestedClasses = span.attrs['class']
+			# 	for spanItem in nestedClasses:
+			# 		if spanItem in spanClass:
+			# 			return True
 	return False
 
 def isProductDescription(data):
@@ -149,19 +145,40 @@ def populateProduct(paragraphs,category,startIndex,endIndex):
 			item['features'].append(paragraphs[i][0])
 		elif paragraphs[i][1] == "product_note":
 			item['notes'].append(paragraphs[i][0])
+
+	# item['m_number'] = item['notes'].pop(0) dealign with m number
 	return item
 
+
+def categoryLoop(paragraphs,firstProduct,nextCategory):
+	productIndex = []
+	for i in range(firstProduct,nextCategory,1):
+		if paragraphs[i][1] == "product_name":
+			productIndex.append(i)
+	productIndex.append(nextCategory)
+	return productIndex
 
 def documentLoop(paragraphs):
 	products = []
 	categoryIndex = findCategoryIndex(filteredParagraphs)
 
-	for i in range(len(categoryIndex)-2):
-		print("index of category = " + str(categoryIndex[i+1]))
-		firstProduct = findCategoryBeginning(paragraphs, categoryIndex[i+1])
-		# Need to continue looping each product name until the next product category
-		products.append(populateProduct(paragraphs,paragraphs[categoryIndex[i+1]][0],categoryIndex[i],categoryIndex[i+1]))
+	for i in range(len(categoryIndex)-1):
+		categoryStart = findCategoryBeginning(paragraphs, categoryIndex[i])
+		productsIndex = categoryLoop(paragraphs,categoryStart,categoryIndex[i+1])
+		for x in range(len(productsIndex)-1):
+			info = populateProduct(paragraphs,paragraphs[categoryIndex[i]][0],productsIndex[x],productsIndex[x+1])
+			if len(products) == 0:
+				products.append(info)
+			elif products[len(products)-1]['product_name'] == info['product_name']:
+				del products[len(products)-1]
+				products.append(info)
+			else:
+				products.append(info)
 	return products
+
+
+
+
 
 
 
@@ -190,9 +207,11 @@ categoryIndex = findCategoryIndex(filteredParagraphs)
 products = documentLoop(filteredParagraphs)
 for x in products:
 	print(x)
+	print('\n')
 
 
 # ------- TO DO --------
-# How to loop over this code so that each all individual parts can be linked to one dictionary (item)
-# Where is the start and end point for each loop so that all features get included, the m number, etc.
-# due to the layout of the HTML , the climbing category usually comes after the first item in the category
+# Seperate the M number out of the notes section
+	# M number has 6 digits and is sometimes combined with other information. Use the regex to grab the number.
+# Only populate products that are "NEW" (they have the new image next to the product)
+
