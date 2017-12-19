@@ -1,13 +1,18 @@
 from lxml import html
 from bs4 import BeautifulSoup
+import re, csv
 
-with open("P:\QA\Berry\S18\Section_2.html","r", encoding="utf8") as f:
+
+#      ----- GLOBAL VARIABLES ------
+# Get the filename you want to work with
+fileName = input('Please enter the name of the html file: ')
+
+# Create the soup 
+with open(("P:\QA\Berry\S18\\" + fileName + ".html"),"r", encoding="utf-8") as f:
 	soup = BeautifulSoup(f, 'lxml')
 
-#             ----- GLOBAL VARIABLES ------
-# All products will be stored in this global variable
-products = []
 # pull all of the paragraphs in the soup
+
 paragraphs = soup.find_all('p')
 
 
@@ -28,13 +33,14 @@ def findCategoryBeginning(paragraphs, categoryIndex):
 	# This counts down instead of up
 	for p in range(categoryIndex,-1,-1):  #start at the category index and go backwards to find the product name index
 		if paragraphs[p][1] == "product_name":
-			return p # return the index of this product name
+			return p # return the index of this product name\
+	return categoryIndex
 
 
 # Functions to check Data Type
 def isProductCategory(data):
 	# local variables for the class selectors
-	pClass = ['ParaOverride-4']
+	pClass = ['ParaOverride-4', 'ParaOverride-2']
 	spanClass = ['Section-Opener-Header', 'CharOverride-2']
 	classes = data.attrs['class']
 	for item in classes:
@@ -65,15 +71,17 @@ def isProductName(data):
 
 def isProductDescription(data):
 	# local variables for the class selectors
-	pClass = ['ParaOverride-3']
+	pClass = ['ParaOverride-3', 'ParaOverride-1'] 
 	spanClass = ['_2_Product-Description']
 	classes = data.attrs['class']
 	for item in classes:
 		if item in pClass:
-			nestedSpan = data.find('span')
-			nestedClass = nestedSpan.attrs['class']
-			if nestedClass[0] in spanClass:
-				return True
+			nestedSpans = data.find_all('span')
+			for span in nestedSpans:
+				nestedClasses = span.attrs['class']
+				for spanItem in nestedClasses:
+					if spanItem in spanClass:
+						return True
 	return False
 
 
@@ -94,15 +102,16 @@ def isProductFeature(data):
 
 def isProductNote(data):
 	# local variables for the class selectors
-	pClass = ['ParaOverride-3']
+	pClass = ['ParaOverride-3', 'ParaOverride-1']
 	spanClass = ['_3_Style-Numbers']
 	classes = data.attrs['class']
 	for item in classes:
 		if item in pClass:
 			nestedSpan = data.find('span')
-			nestedClass = nestedSpan.attrs['class']
-			if nestedClass[0] in spanClass:
-				return True
+			nestedClasses = nestedSpan.attrs['class']
+			for nestedClass in nestedClasses:
+				if nestedClass in spanClass:
+					return True
 	return False
 
 def findDataType(data):
@@ -112,10 +121,10 @@ def findDataType(data):
 		return 'product_name'
 	elif isProductFeature(data):  # Order of operations matter due to class sharing
 		return 'product_feature'
+	elif isProductNote(data):
+		return 'product_note'
 	elif isProductDescription(data):
 		return 'product_description'
-	elif isProductNote(data):
-		return 'product_note'	
 	else:
 		return 'na'
 
@@ -132,21 +141,31 @@ def filterParagraphs(data):
 def populateProduct(paragraphs,category,startIndex,endIndex):
 	#Initialize item dictionary
 	item = {'product_category': '', 'product_name': '', 'product_description': '', 'features': [], \
-	'm_number': '', 'size': '', 'color': '', 'notes': []}
+	'm_number': [], 'notes': []}
 
 	item['product_category'] = category
+
 
 	for i in range(startIndex,endIndex,1):
 		if paragraphs[i][1] == "product_name":
 			item['product_name'] = paragraphs[i][0]
 		elif paragraphs[i][1] == "product_description":
-			item['product_description'] = paragraphs[i][0]
+			if paragraphs[i-1][1] == "product_description":
+				item['product_description'] = paragraphs[i-1][0] + paragraphs[i][0]
+			else: 
+				item['product_description'] = paragraphs[i][0]
 		elif paragraphs[i][1] == "product_feature":
 			item['features'].append(paragraphs[i][0])
 		elif paragraphs[i][1] == "product_note":
 			item['notes'].append(paragraphs[i][0])
 
-	# item['m_number'] = item['notes'].pop(0) dealign with m number
+	# Set the M Number
+	if len(item['notes']) > 0:
+		for note in item['notes']:
+			mNumber = re.findall(r'\d+', note)
+			if len(mNumber) > 0 and len(mNumber[0]) == 6:
+				item['m_number'].append(mNumber[0])
+
 	return item
 
 
@@ -178,14 +197,20 @@ def documentLoop(paragraphs):
 
 
 
-
-
-
-
-
-
-
-
+def WriteDictToCSV(csv_file,products):
+	fieldNames = ['product_category', 'product_name', 'product_description', 'features', \
+	'm_number', 'notes']
+	try:
+		with open(csv_file, 'w', newline='', encoding='utf-8') as csvfile:
+			writer = csv.DictWriter(csvfile, fieldnames=fieldNames, delimiter='|')
+			writer.writeheader()
+			for product in products:
+				writer.writerow({'product_category': product['product_category'], 'product_name': product['product_name'], \
+					'product_description': product['product_description'], 'features': product['features'], 'm_number': product['m_number'], \
+					'notes': product['notes']})
+	except IOError:
+		print("I/O error", csv_file)
+	return
 
 
 
@@ -194,24 +219,25 @@ def documentLoop(paragraphs):
 
 
 sortedParagraphs = list(map(populateDataType, paragraphs))
+
 filteredParagraphs = list(filter(filterParagraphs, sortedParagraphs))
 
 # Category Indexes
 categoryIndex = findCategoryIndex(filteredParagraphs)
 
-
-
-# product = populateProduct(filteredParagraphs,'shoes',0,11)
-# print(product)
-
 products = documentLoop(filteredParagraphs)
+print('\n') # make a new line below where the script got the input for the file name
 for x in products:
 	print(x)
 	print('\n')
 
 
-# ------- TO DO --------
-# Seperate the M number out of the notes section
-	# M number has 6 digits and is sometimes combined with other information. Use the regex to grab the number.
-# Only populate products that are "NEW" (they have the new image next to the product)
+WriteDictToCSV(fileName + ".csv",products)
 
+
+     
+
+# ------- TO DO --------
+#
+# Make sure this works with all the sections. It doesnt at this point for some reason.
+	# Some sections use different class names
